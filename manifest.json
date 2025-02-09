@@ -1,0 +1,20 @@
+{
+  "name": "Real Estate Converter",
+  "short_name": "RE Converter",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2196f3",
+  "icons": [
+    {
+      "src": "/api/placeholder/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/api/placeholder/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
