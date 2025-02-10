@@ -162,29 +162,28 @@
         // Fetch exchange rates from API
         async function fetchExchangeRates() {
             try {
-                // Show loading state
                 currencySelect.innerHTML = '<option value="">Loading currencies...</option>';
                 currencySelect.disabled = true;
                 
-                const response = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://open.er-api.com/v6/latest/USD'));
+                const response = await fetch('https://v6.exchangerate-api.com/v6/bd5a904113f08d2c2a94bc51/latest/USD');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
                 
-                if (data.rates) {
-                    exchangeRates = data.rates;
+                if (data.conversion_rates) {
+                    exchangeRates = data.conversion_rates;
                     lastUpdate = new Date();
                     updateCurrencySelect();
                     updateLastUpdated();
                     currencySelect.disabled = false;
+                    calculatePrices(); // Add this line to trigger initial calculation
                     return true;
                 }
                 throw new Error('Invalid rate data');
             } catch (error) {
                 console.error('Exchange rate error:', error);
-                showError('Failed to fetch exchange rates. Please try refreshing the page.');
-                // Show error state in select
+                showError('Failed to fetch exchange rates. Please try again later.');
                 currencySelect.innerHTML = '<option value="">Error loading currencies</option>';
                 return false;
             }
