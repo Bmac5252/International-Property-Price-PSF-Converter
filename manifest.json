@@ -1,7 +1,7 @@
 {
-  "name": "Real Estate Price Converter",
-  "short_name": "RE Converter",
-  "description": "Convert real estate prices between square feet and square meters across different currencies",
+  "name": "International Property Price Converter",
+  "short_name": "INTL PP Converter",
+  "description": "Convert real estate prices between price per square meter and price per square foot across different currencies",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f5f5",
