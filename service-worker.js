@@ -1,11 +1,12 @@
-const CACHE_NAME = 'real-estate-converter-v1';
+const CACHE_NAME = 'real-estate-converter-v2';
 const urlsToCache = [
   '/',
-  '/index.html',
-  '/manifest.json'
+  '/converter.html',
+  '/manifest.json',
+  '/sw.js',
+  'https://v6.exchangerate-api.com/v6/bd5a904113f08d2c2a94bc51/latest/USD'
 ];
 
-// Install service worker and cache resources
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -15,7 +16,6 @@ self.addEventListener('install', event => {
   );
 });
 
-// Fetch resources from cache or network
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
@@ -23,5 +23,20 @@ self.addEventListener('fetch', event => {
         // Return cached version or fetch from network
         return response || fetch(event.request);
       })
+  );
+});
+
+// Clean up old caches
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
   );
 });
