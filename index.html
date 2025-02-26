@@ -169,6 +169,233 @@
         // Constants and state
         const CONVERSION_RATES = {
             sqm: 1,
+            sqft: 1 / 10.764,      // 1 sqft = 0.092903 sqm
+            acre: 1 / 4046.86,     // 1 acre = 0.000247105 sqm
+            hectare: 1 / 10000,    // 1 hectare = 0.0001 sqm
+            cuadra: 1 / 6400,      // 1 cuadra = 0.00015625 sqm
+            sqkm: 1 / 1000000,     // 1 sqkm = 0.000001 sqm
+            sqmi: 1 / 2589988.11   // 1 sqmi = 0.000000386102 sqm
+        };
+        let inputUnit = 'sqm';
+        let outputUnit = 'sqft';
+        let inputCurrency = 'USD';
+        let outputCurrency = 'USD';
+        let exchangeRates = null;
+        let lastUpdate = null;
+
+        // DOM elements
+        const priceInput = document.getElementById('price');
+        const inputCurrencySelect = document.getElementById('input-currency');
+        const outputCurrencySelect = document.getElementById('output-currency');
+        const convertedPrice = document.getElementById('converted-price');
+        const totalPrice = document.getElementById('total-price');
+        const errorMessage = document.getElementById('error-message');
+        const lastUpdated = document.getElementById('last-updated');
+        const unitTexts = document.querySelectorAll('.unit-text');
+        const inputUnitText = document.getElementById('input-unit-text');
+        const areaSize = document.getElementById('area-size');
+        const outputCurrencyText = document.getElementById('output-currency-text');
+        const outputCurrencyTextTotal = document.getElementById('output-currency-text-total');
+
+        // Fetch exchange rates from API
+        async function fetchExchangeRates() {
+            try {
+                inputCurrencySelect.innerHTML = '<option value="">Loading currencies...</option>';
+                outputCurrencySelect.innerHTML = '<option value="">Loading currencies...</option>';
+                inputCurrencySelect.disabled = true;
+                outputCurrencySelect.disabled = true;
+                
+                const response = await fetch('https://v6.exchangerate-api.com/v6/bd5a904113f08d2c2a94bc51/latest/USD');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                if (data.conversion_rates) {
+                    exchangeRates = data.conversion_rates;
+                    lastUpdate = new Date();
+                    updateCurrencySelects();
+                    updateLastUpdated();
+                    inputCurrencySelect.disabled = false;
+                    outputCurrencySelect.disabled = false;
+                    calculatePrices();
+                    return true;
+                }
+                throw new Error('Invalid rate data');
+            } catch (error) {
+                console.error('Exchange rate error:', error);
+                showError('Failed to fetch exchange rates. Please try again later.');
+                inputCurrencySelect.innerHTML = '<option value="">Error loading currencies</option>';
+                outputCurrencySelect.innerHTML = '<option value="">Error loading currencies</option>';
+                return false;
+            }
+        }
+
+        // Update both currency select dropdowns
+        function updateCurrencySelects() {
+            if (!exchangeRates) {
+                inputCurrencySelect.innerHTML = '<option value="">No exchange rates available</option>';
+                outputCurrencySelect.innerHTML = '<option value="">No exchange rates available</option>';
+                return;
+            }
+            
+            const currencies = Object.keys(exchangeRates).sort();
+            const options = currencies.map(currency => {
+                const name = getCurrencyName(currency);
+                const label = name ? `${currency} - ${name}` : currency;
+                return `<option value="${currency}">${label}</option>`;
+            });
+            
+            inputCurrencySelect.innerHTML = options.join('');
+            outputCurrencySelect.innerHTML = options.join('');
+            
+            const defaultInputCurrency = localStorage.getItem('lastInputCurrency') || 'COP';
+            const defaultOutputCurrency = localStorage.getItem('lastOutputCurrency') || 'USD';
+            if (currencies.includes(defaultInputCurrency)) inputCurrencySelect.value = defaultInputCurrency;
+            if (currencies.includes(defaultOutputCurrency)) outputCurrencySelect.value = defaultOutputCurrency;
+            
+            inputCurrency = inputCurrencySelect.value;
+            outputCurrency = outputCurrencySelect.value;
+        }
+
+        // Get full currency names
+        function getCurrencyName(code) {
+            const names = {
+                USD: 'US Dollar', EUR: 'Euro', GBP: 'British Pound',
+                JPY: 'Japanese Yen', AUD: 'Australian Dollar',
+                CAD: 'Canadian Dollar', THB: 'Thai Baht',
+                COP: 'Colombian Peso', MXN: 'Mexican Peso',
+                INR: 'Indian Rupee'
+            };
+            return names[code] || code;
+        }
+
+        // Calculate and display prices
+        function calculatePrices() {
+            const price = parseFloat(priceInput.value) || 0;
+            inputCurrency = inputCurrencySelect.value;
+            outputCurrency = outputCurrencySelect.value;
+            
+            if (!exchangeRates || !exchangeRates[inputCurrency] || !exchangeRates[outputCurrency]) {
+                showError('Exchange rate not available');
+                return;
+            }
+
+            // Convert input price to USD
+            const usdPrice = price / exchangeRates[inputCurrency]; // Price per input unit in USD
+            
+            // Convert area to output unit (normalize to sqm, then convert)
+            const sqmRateInput = 1 / CONVERSION_RATES[inputUnit];  // sqm per input unit
+            const sqmRateOutput = 1 / CONVERSION_RATES[outputUnit]; // sqm per output unit
+            const usdPerSqm = usdPrice * sqmRateInput;             // USD per sqm
+            const displayPrice = usdPerSqm / sqmRateOutput;        // USD per output unit
+            
+            // Convert to output currency
+            const finalPrice = displayPrice * exchangeRates[outputCurrency];
+
+            // Set total area based on output unit
+            const totalAreas = {
+                sqm: 100,      // 100 sqm
+                sqft: 1000,    // 1000 sqft
+                acre: 1,       // 1 acre
+                hectare: 1,    // 1 hectare
+                cuadra: 1,     // 1 cuadra
+                sqkm: 0.1,     // 0.1 sqkm
+                sqmi: 0.1      // 0.1 sqmi
+            };
+            const totalArea = totalAreas[outputUnit];
+
+            // Update display
+            convertedPrice.textContent = `${finalPrice.toFixed(2)}`;
+            outputCurrencyText.textContent = outputCurrency;
+            areaSize.textContent = totalArea;
+            totalPrice.textContent = `${(finalPrice * totalArea).toFixed(2)}`;
+            outputCurrencyTextTotal.textContent = outputCurrency;
+        }
+
+        // Toggle input unit
+        document.querySelectorAll('#input-toggle .toggle-button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('#input-toggle .toggle-button').forEach(b => 
+                    b.classList.remove('active'));
+                button.classList.add('active');
+                inputUnit = button.dataset.unit;
+                inputUnitText.textContent = getUnitDisplay(inputUnit);
+                calculatePrices();
+            });
+        });
+
+        // Toggle output unit
+        document.querySelectorAll('#output-toggle .toggle-button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('#output-toggle .toggle-button').forEach(b => 
+                    b.classList.remove('active'));
+                button.classList.add('active');
+                outputUnit = button.dataset.unit;
+                unitTexts.forEach(text => text.content = getUnitDisplay(outputUnit));
+                calculatePrices();
+            });
+        });
+
+        // Helper function for unit display text
+        function getUnitDisplay(unit) {
+            const displays = {
+                sqm: 'sq m',
+                sqft: 'sq ft',
+                acre: 'acre',
+                hectare: 'hectare',
+                cuadra: 'cuadra',
+                sqkm: 'sq km',
+                sqmi: 'sq mi'
+            };
+            return displays[unit];
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function updateLastUpdated() {
+            if (lastUpdate) {
+                lastUpdated.textContent = `Rates last updated: ${lastUpdate.toLocaleString()}`;
+            }
+        }
+
+        // Add event listeners
+        priceInput.addEventListener('input', calculatePrices);
+        inputCurrencySelect.addEventListener('change', () => {
+            localStorage.setItem('lastInputCurrency', inputCurrencySelect.value);
+            calculatePrices();
+        });
+        outputCurrencySelect.addEventListener('change', () => {
+            localStorage.setItem('lastOutputCurrency', outputCurrencySelect.value);
+            calculatePrices();
+        });
+
+        // Initialize
+        fetchExchangeRates();
+        setInterval(fetchExchangeRates, 3600000); // Update rates every hour
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script> 
+        // Constants and state
+        const CONVERSION_RATES = {
+            sqm: 1,
             sqft: 10.764,           // 1 sqm = 10.764 sqft
             acre: 4046.86,         // 1 acre = 4046.86 sqm
             hectare: 10000,        // 1 hectare = 10,000 sqm
